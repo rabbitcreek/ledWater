@@ -12,7 +12,7 @@ int lockPoint = 0;
 #define BRIGHTNESS  255
 #define LED_TYPE    WS2812
 #define COLOR_ORDER GRB
-  int timeIndex;
+  int timeIndex = 1;
 #define NUM_LEDS 60
  int timerLight = 0;
 CRGB leds[NUM_LEDS];
@@ -168,8 +168,9 @@ void setup(){
 void loop()
 {
   //fill_grad();
-   fill_time();
+   
   fillnoise8(); 
+  fill_time();
   /*
    EVERY_N_MILLIS(10) {
     nblendPaletteTowardPalette(currentPalette, targetPalette, 48);          // Blend towards the target palette over 48 iterations.
@@ -182,11 +183,12 @@ void loop()
    LEDS.show(); 
   if((millis() - masterTimer) > (1000 * 60 * 5)){
     masterTimer = millis();
-    lockPoint ++;
-    if(lockPoint == 255)lockPoint = 0;
+    if(ConnectToWiFi()){
     ConnectToNoaa(client, /*out*/ hourCurrent, /*out*/ minuteCurrent);
+    if(client.connected()){
   while (client.connected())
     {
+      
       long year = client.parseInt();
       client.read(); // '-'
       long month = client.parseInt();
@@ -229,6 +231,7 @@ void loop()
       }
       */
     }
+    
   Serial.print("*bool");
   Serial.println(fLow);
   Serial.print("*tide hour");
@@ -246,6 +249,7 @@ void loop()
   int timeToGo = hourCurrent - hour;
   if(fLow) lightLevel = map(timeToGo, 0,360, 1,60);
   else lightLevel = map(timeToGo, 0,360, 60,1);
+  lightLevel = constrain(lightLevel,  1, 60);
   Serial.print("lightLevel");
   Serial.println(lightLevel);
   if((timerLight < 8) || (timerLight > 20)) timeIndex = 2;
@@ -255,11 +259,13 @@ void loop()
  Serial.print("timeIndex");
 Serial.println(timeIndex);  
   }
+    }
+  } 
 }
 void fillnoise8() {
  
   #define scale 30                                                          // Don't change this programmatically or everything shakes.
-  
+  //lightLevel = 30;
   for(int i = 0; i < lightLevel; i++) {                                       // Just ONE loop to fill up the LED array as all of the pixels change.
     uint8_t index = inoise8(i*scale, millis()/10+i*scale);                   // Get a value from the noise function. I'm using both x and y axis.
     leds[i] = ColorFromPalette(targetPalette, index, 255, LINEARBLEND);    // With that value, look up the 8 bit colour palette value and assign it to the current LED.
@@ -269,8 +275,8 @@ void fillnoise8() {
 void fill_time(){
   #define scale 30
  // Don't change this programmatically or everything shakes.
-  
- 
+  //lightLevel = 30;
+ //timeIndex = 3;
    CRGBPalette16 otherPalette(gGradientPalettes[timeIndex]);
   for(int i = lightLevel - 1; i < 60; i++) {                                       // Just ONE loop to fill up the LED array as all of the pixels change.
     uint8_t index = inoise8(i*scale, millis()/10+i*scale);                   // Get a value from the noise function. I'm using both x and y axis.
@@ -292,6 +298,23 @@ void fill_grad() {
   
 } // fill_grad()
 */
+// Gradient palette "revisiting_dreams_gp", originally from
+// http://soliton.vm.bytemark.co.uk/pub/cpt-city/colo/angelafaye/tn/revisiting_dreams.png.index.html
+// converted for FastLED with gammas (2.6, 2.2, 2.5)
+// Size: 40 bytes of program space.
+
+DEFINE_GRADIENT_PALETTE( revisiting_dreams_gp ) {
+    0,   3,  3,  4,
+   51,   3,  3,  4,
+   51,   6,  8,  8,
+  102,   6,  8,  8,
+  102,   8, 22, 16,
+  153,   8, 22, 16,
+  153,  21, 55, 25,
+  204,  21, 55, 25,
+  204,  43, 91, 44,
+  255,  43, 91, 44};
+
 DEFINE_GRADIENT_PALETTE( bhw1_sunset3_gp ) {
    0, 227,237, 56,
   33, 186, 67,  1,
@@ -307,16 +330,7 @@ DEFINE_GRADIENT_PALETTE( bhw1_sunset1_gp ) {
  145, 190,147,127,
  178,  88,136,203,
  255,   3, 24, 78};
-DEFINE_GRADIENT_PALETTE( bhw1_14_gp ) {
-   0,   0,  0,  0,
-  12,   1,  1,  3,
-  53,   8,  1, 22,
-  80,   4,  6, 89,
- 119,   2, 25,216,
- 145,   7, 10, 99,
- 186,  15,  2, 31,
- 233,   2,  1,  5,
- 255,   0,  0,  0};
+
 DEFINE_GRADIENT_PALETTE( bhw1_sunset2_gp ) {
    0, 255,175,  8,
   81, 237, 29, 10,
@@ -414,6 +428,6 @@ DEFINE_GRADIENT_PALETTE( xkcd_bath_gp ) {
 const TProgmemRGBGradientPalettePtr gGradientPalettes[] = {
   xkcd_bath_gp,
   bhw1_sunset2_gp,
-  bhw1_14_gp,
+ revisiting_dreams_gp,
   bhw1_sunset1_gp,
   bhw1_sunset3_gp};
