@@ -29,7 +29,7 @@ char rgch[CCH];
 bool ConnectToWiFi(void)
 {
   const char *ssid = "werner";
-  const char *password = "9073456071";
+  const char *password = "";
   int count = 0;
 
   Serial.print("connecting to ");
