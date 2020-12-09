@@ -5,8 +5,7 @@
 #include <HTTPClient.h>
 #include <Arduino_JSON.h>
 String city = "Anchorage";
-String countryCode = "US";
-String openWeatherMapApiKey = "e28ba1db8ba3c57983a446d6afbcb55b";
+String "";
 #define CONFIG_NOAA_STATION "9455920"
 #define CONFIG_USER_AGENT "someone@example.com"
 #define CONFIG_OFFSET_FROM_UTC (-9)
@@ -37,7 +36,7 @@ char rgch[CCH];
 bool ConnectToWiFi(void)
 {
   const char *ssid = "werner";
-  const char *password = "9073456071";
+  const char *password = "";
   int count = 0;
 
   Serial.print("connecting to ");
