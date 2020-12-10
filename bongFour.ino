@@ -4,22 +4,25 @@
 #include <WiFiClientSecure.h>
 #include <HTTPClient.h>
 #include <Arduino_JSON.h>
-String city = "Anchorage";
-String "";
+
 #define CONFIG_NOAA_STATION "9455920"
 #define CONFIG_USER_AGENT "someone@example.com"
 #define CONFIG_OFFSET_FROM_UTC (-9)
+String city = "Anchorage";
+String countryCode = "US";
+String openWeatherMapApiKey = "e28ba1db8ba3c57983a446d6afbcb55b";
 int lockPoint = 0;
 int temp = 50;
+float minorTimer;
 #include "FastLED.h"
 #define LED_PIN     17
 //#define CLK_PIN     D4
 #define BRIGHTNESS  255
 #define LED_TYPE    WS2812
 #define COLOR_ORDER GRB
-  int timeIndex = 1;
+int timeIndex = 1;
 #define NUM_LEDS 70
- int timerLight = 0;
+int timerLight = 0;
 CRGB leds[NUM_LEDS];
 unsigned long timerDelay = 60000;
 unsigned long lastTime = 0;
@@ -27,16 +30,16 @@ float masterTimer;
 int lightLevel = 20;
 long hour;
 long minute;
- int hourCurrent;
-  int minuteCurrent;
-  bool fLow;
+int hourCurrent;
+int minuteCurrent;
+bool fLow;
 const int CCH = 128;
 String jsonBuffer;
 char rgch[CCH];
 bool ConnectToWiFi(void)
 {
   const char *ssid = "werner";
-  const char *password = "";
+  const char *password = "9073456071";
   int count = 0;
 
   Serial.print("connecting to ");
@@ -144,23 +147,13 @@ void ConnectToNoaa(
       minute = atoi(pch);
     }
   }
-
-  // Skip "Date Time, Prediction, Type" column headers
-  client.readStringUntil('\n');
+   client.readStringUntil('\n');
 }
-// Gradient palette "bhw1_sunset2_gp", originally from
-// http://soliton.vm.bytemark.co.uk/pub/cpt-city/bhw/bhw1/tn/bhw1_sunset2.png.index.html
-// converted for FastLED with gammas (2.6, 2.2, 2.5)
-// Size: 20 bytes of program space.
-// Gradient palette "bhw1_14_gp", originally from
-// http://soliton.vm.bytemark.co.uk/pub/cpt-city/bhw/bhw1/tn/bhw1_14.png.index.html
-// converted for FastLED with gammas (2.6, 2.2, 2.5)
-// Size: 36 bytes of program space.
-extern const TProgmemRGBGradientPalettePtr gGradientPalettes[];
 
-  //CRGBPalette16 currentPalette(CRGB::Black);
+extern const TProgmemRGBGradientPalettePtr gGradientPalettes[];
+   CRGBPalette16 greenPalette(gGradientPalettes[5]);
    CRGBPalette16 targetPalette( gGradientPalettes[0]);
-   //CRGBPalette16 otherPalette(gGradientPalettes[1]);
+
 void setup(){
    
    Serial.begin(115200);
@@ -171,21 +164,27 @@ void setup(){
       Serial.print("notconnected");
     }
  masterTimer = millis();
+ minorTimer = millis();
 }
 void loop()
 {
   
-   
-  fillnoise8(); 
-  fill_time();
- 
-   LEDS.show(); 
-  if((millis() - masterTimer) > (1000 * 60 * 5)){
+    if((millis() - minorTimer) > 1000 * 30){
+    fallTemp();
+    minorTimer = millis();
+  }
+    fillnoise8(); 
+    fill_time();
+    if(fLow)leds[59] = CRGB::Red;
+    else leds[0] = CRGB::Red;
+    LEDS.show(); 
+    if((millis() - masterTimer) > (1000 * 60 * 5)){
+    minorTimer = millis();
     masterTimer = millis();
     if(ConnectToWiFi()){
     ConnectToNoaa(client, /*out*/ hourCurrent, /*out*/ minuteCurrent);
     if(client.connected()){
-  while (client.connected())
+    while (client.connected())
     {
       
       long year = client.parseInt();
@@ -194,18 +193,18 @@ void loop()
       client.read(); // '-'
       long day = client.parseInt();
       hour = client.parseInt();
-     minute = client.parseInt();
+      minute = client.parseInt();
       long level = client.parseInt();
       client.readBytesUntil(',', rgch,CCH);
       fLow = ('L' == client.read());
-     client.readBytesUntil('\n', rgch, CCH);
-     Serial.print("year");
-     Serial.println(year);
-     Serial.print("month");
-     Serial.println(month);
+      client.readBytesUntil('\n', rgch, CCH);
+      Serial.print("year");
+      Serial.println(year);
+      Serial.print("month");
+      Serial.println(month);
      
-     Serial.print("day");
-     Serial.println(day);
+      Serial.print("day");
+      Serial.println(day);
       Serial.print("level");
       Serial.println(level);
       Serial.print("hour");
@@ -241,10 +240,10 @@ void loop()
   else if(timerLight < 11)  timeIndex = 1;
   else if(timerLight > 14) timeIndex = 4;
   else timeIndex = 3;
- Serial.print("timeIndex");
-Serial.println(timeIndex); 
-tempTime(); 
-fallTemp();
+  Serial.print("timeIndex");
+  Serial.println(timeIndex); 
+  tempTime(); 
+  fallTemp();
       }
     }
   } 
@@ -255,7 +254,9 @@ void fillnoise8() {
   //lightLevel = 30;
   for(int i = 0; i < lightLevel; i++) {                                       // Just ONE loop to fill up the LED array as all of the pixels change.
     uint8_t index = inoise8(i*scale, millis()/10+i*scale);                   // Get a value from the noise function. I'm using both x and y axis.
-    leds[i] = ColorFromPalette(targetPalette, index, 255, LINEARBLEND);    // With that value, look up the 8 bit colour palette value and assign it to the current LED.
+    leds[i] = ColorFromPalette(targetPalette, index, 255, LINEARBLEND);
+ 
+    // With that value, look up the 8 bit colour palette value and assign it to the current LED.
   }
  
 } // fillnoise8()
@@ -299,6 +300,8 @@ void tempTime(){
       Serial.println(myObject["main"]["humidity"]);
       Serial.print("Wind Speed: ");
       Serial.println(myObject["wind"]["speed"]);
+      Serial.print("weather ID");
+      Serial.println(myObject["weather"][0]["id"]);
     }
     else {
       Serial.println("WiFi Disconnected");
@@ -333,6 +336,7 @@ String httpGETRequest(const char* serverName) {
   return payload;
 }
 void fallTemp(){
+  
   int george = 0;
   int pMax = 0;
   int i = 0;
@@ -358,8 +362,8 @@ void fallTemp(){
  
   pos=(60-(round(h*60)));
   if(pos +5 > 60)pos = pos - 4;
-  Serial.print("position");
-  Serial.println(pos);
+  //Serial.print("position");
+  //Serial.println(pos);
   if (pos <=  pMax) {
     
     tLast=millis();
@@ -373,9 +377,10 @@ void fallTemp(){
     FastLED.show();
     delay(30);
     for(int j=0;j<5;j++){
-      
+    int posColor = map(pos, 0,60, 255,100);
+    leds[pos+j] = ColorFromPalette(greenPalette, posColor, 255, LINEARBLEND);  
     //strip.setPixelColor(pos + j,22,5,5);
-    leds[pos + j] = CRGB::DarkGreen;
+    //leds[pos + j] = CRGB::DarkGreen;
     }
     FastLED.show();
   }
@@ -402,8 +407,8 @@ void fallTemp(){
   //Serial.println(h[i]);
   pos=(60-(round(h*60)));
   //Serial.println(pos[i]);
-  Serial.print("position");
-  Serial.println(pos);
+  //Serial.print("position");
+  //Serial.println(pos);
   if(pos + 4 > 60)pos = pos - 4;
   if (pos <=  pMax) {
     
@@ -419,8 +424,9 @@ void fallTemp(){
     for(int j=0;j<5;j++){
       
     //strip.setPixelColor(pos + j,5,5,22);
-    
-    leds[pos + j] = CRGB::DarkGreen;
+    int posColor = map(pos, 0,60, 255,100);
+    leds[pos+j] = ColorFromPalette(greenPalette, posColor, 255, LINEARBLEND); 
+    //leds[pos + j] = CRGB::DarkGreen;
     //leds[pos + j] = CRGB::DarkGreen;
     }
      FastLED.show();
@@ -440,6 +446,12 @@ void fallTemp(){
  delay(5000);
   
   }  
+// Gradient palette "revisiting_dreams_gp", originally from
+// http://soliton.vm.bytemark.co.uk/pub/cpt-city/colo/angelafaye/tn/revisiting_dreams.png.index.html
+// converted for FastLED with gammas (2.6, 2.2, 2.5)
+// Size: 40 bytes of program space.
+
+
 
 
 
@@ -572,4 +584,5 @@ const TProgmemRGBGradientPalettePtr gGradientPalettes[] = {
   bhw1_sunset2_gp,
  revisiting_dreams_gp,
   bhw1_sunset1_gp,
-  bhw1_sunset3_gp};
+  bhw1_sunset3_gp,
+  revisiting_dreams_gp};
