@@ -1,5 +1,5 @@
 
-//https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=predictions&application=Custom&date=today&datum=MLLW&station=9455920&time_zone=lst_ldt&units=english&interval=hilo&format=csv
+//https://api.tidesandcurrents.noaa.gov/api/prod/datagetter?product=predictions&application=Custom&date=today&datum=MLLW&station=9455920&time_zone=lst_ldt&units=english&interval=hilo&format=xml
 #include "FastLED.h"
 //#include <WiFiClientSecure.h>
 #include <WiFi.h>
@@ -9,7 +9,7 @@
 int failConnect = 1;
 #define CONFIG_NOAA_STATION "9455920"
 #define CONFIG_USER_AGENT "someone@example.com"
-#define CONFIG_OFFSET_FROM_UTC (-9)
+#define CONFIG_OFFSET_FROM_UTC (-8)
 String city = "Anchorage";
 String countryCode = "US";
 String openWeatherMapApiKey = "e28ba1db8ba3c57983a446d6afbcb55b";
@@ -19,7 +19,8 @@ int temp = 50;
 int hourLight  = 0;
 int callSnow = 0;
 unsigned long minorTimer;
-
+int timeHour = 0;
+int timeMinute = 0;
 #define LED_PIN     2
 //#define CLK_PIN     D4
 #define BRIGHTNESS  255
@@ -33,11 +34,11 @@ unsigned long timerDelay = 60000;
 unsigned long lastTime = 0;
 unsigned long masterTimer;
 int lightLevel = 20;
-long hour;
-long minute;
-int hourCurrent;
-int minuteCurrent;
-bool fLow;
+long hour = 0;
+long minute = 0;
+int hourCurrent = 0;
+int minuteCurrent = 0;
+bool fLow = 0;
 unsigned long weatherTimer;
 const int CCH = 128;
 String jsonBuffer;
@@ -73,31 +74,51 @@ void ConnectToNoaa(
 {
   const char *host = "api.tidesandcurrents.noaa.gov";
   const int httpsPort = 443;
-  static const char noaa_rootCA_cert[] PROGMEM =
-      "-----BEGIN CERTIFICATE-----\n"
-      "MIIDrzCCApegAwIBAgIQCDvgVpBCRrGhdWrJWZHHSjANBgkqhkiG9w0BAQUFADBh\n"
-      "MQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3\n"
-      "d3cuZGlnaWNlcnQuY29tMSAwHgYDVQQDExdEaWdpQ2VydCBHbG9iYWwgUm9vdCBD\n"
-      "QTAeFw0wNjExMTAwMDAwMDBaFw0zMTExMTAwMDAwMDBaMGExCzAJBgNVBAYTAlVT\n"
-      "MRUwEwYDVQQKEwxEaWdpQ2VydCBJbmMxGTAXBgNVBAsTEHd3dy5kaWdpY2VydC5j\n"
-      "b20xIDAeBgNVBAMTF0RpZ2lDZXJ0IEdsb2JhbCBSb290IENBMIIBIjANBgkqhkiG\n"
-      "9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4jvhEXLeqKTTo1eqUKKPC3eQyaKl7hLOllsB\n"
-      "CSDMAZOnTjC3U/dDxGkAV53ijSLdhwZAAIEJzs4bg7/fzTtxRuLWZscFs3YnFo97\n"
-      "nh6Vfe63SKMI2tavegw5BmV/Sl0fvBf4q77uKNd0f3p4mVmFaG5cIzJLv07A6Fpt\n"
-      "43C/dxC//AH2hdmoRBBYMql1GNXRor5H4idq9Joz+EkIYIvUX7Q6hL+hqkpMfT7P\n"
-      "T19sdl6gSzeRntwi5m3OFBqOasv+zbMUZBfHWymeMr/y7vrTC0LUq7dBMtoM1O/4\n"
-      "gdW7jVg/tRvoSSiicNoxBN33shbyTApOB6jtSj1etX+jkMOvJwIDAQABo2MwYTAO\n"
-      "BgNVHQ8BAf8EBAMCAYYwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUA95QNVbR\n"
-      "TLtm8KPiGxvDl7I90VUwHwYDVR0jBBgwFoAUA95QNVbRTLtm8KPiGxvDl7I90VUw\n"
-      "DQYJKoZIhvcNAQEFBQADggEBAMucN6pIExIK+t1EnE9SsPTfrgT1eXkIoyQY/Esr\n"
-      "hMAtudXH/vTBH1jLuG2cenTnmCmrEbXjcKChzUyImZOMkXDiqw8cvpOp/2PV5Adg\n"
-      "06O/nVsJ8dWO41P0jmP6P6fbtGbfYmbW0W5BjfIttep3Sp+dWOIrWcBAI+0tKIJF\n"
-      "PnlUkiaY4IBIqDfv8NZ5YBberOgOzW6sRBc4L0na4UU+Krk2U886UAb3LujEV0ls\n"
-      "YSEY1QSteDwsOoBrp+uvFRTp2InBuThs4pFsiv9kuXclVzDAGySj4dzp30d8tbQk\n"
-      "CAUw7C29C79Fv1C5qfPrmAESrciIxpg0X40KPMbp1ZWVbd4=\n"
-      "-----END CERTIFICATE-----\n";
+  /*
+   static const char noaa_rootCA_cert[] PROGMEM =
+       "-----BEGIN CERTIFICATE-----\n"
+       "MIIDrzCCApegAwIBAgIQCDvgVpBCRrGhdWrJWZHHSjANBgkqhkiG9w0BAQUFADBh\n"
+       "MIIDjjCCAnagAwIBAgIQAzrx5qcRqaC7KGSxHQn65TANBgkqhkiG9w0BAQsFADBh\n"
+       "MQswCQYDVQQGEwJVUzEVMBMGA1UEChMMRGlnaUNlcnQgSW5jMRkwFwYDVQQLExB3\n"
+       "d3cuZGlnaWNlcnQuY29tMSAwHgYDVQQDExdEaWdpQ2VydCBHbG9iYWwgUm9vdCBD\n"
+       "QTAeFw0wNjExMTAwMDAwMDBaFw0zMTExMTAwMDAwMDBaMGExCzAJBgNVBAYTAlVT\n"
+       "d3cuZGlnaWNlcnQuY29tMSAwHgYDVQQDExdEaWdpQ2VydCBHbG9iYWwgUm9vdCBH\n"
+       "MjAeFw0xMzA4MDExMjAwMDBaFw0zODAxMTUxMjAwMDBaMGExCzAJBgNVBAYTAlVT\n"
+       "MRUwEwYDVQQKEwxEaWdpQ2VydCBJbmMxGTAXBgNVBAsTEHd3dy5kaWdpY2VydC5j\n"
+       "b20xIDAeBgNVBAMTF0RpZ2lDZXJ0IEdsb2JhbCBSb290IENBMIIBIjANBgkqhkiG\n"
+       "9w0BAQEFAAOCAQ8AMIIBCgKCAQEA4jvhEXLeqKTTo1eqUKKPC3eQyaKl7hLOllsB\n"
+       "CSDMAZOnTjC3U/dDxGkAV53ijSLdhwZAAIEJzs4bg7/fzTtxRuLWZscFs3YnFo97\n"
+       "nh6Vfe63SKMI2tavegw5BmV/Sl0fvBf4q77uKNd0f3p4mVmFaG5cIzJLv07A6Fpt\n"
+       "43C/dxC//AH2hdmoRBBYMql1GNXRor5H4idq9Joz+EkIYIvUX7Q6hL+hqkpMfT7P\n"
+       "T19sdl6gSzeRntwi5m3OFBqOasv+zbMUZBfHWymeMr/y7vrTC0LUq7dBMtoM1O/4\n"
+       "gdW7jVg/tRvoSSiicNoxBN33shbyTApOB6jtSj1etX+jkMOvJwIDAQABo2MwYTAO\n"
+       "BgNVHQ8BAf8EBAMCAYYwDwYDVR0TAQH/BAUwAwEB/zAdBgNVHQ4EFgQUA95QNVbR\n"
+       "TLtm8KPiGxvDl7I90VUwHwYDVR0jBBgwFoAUA95QNVbRTLtm8KPiGxvDl7I90VUw\n"
+       "DQYJKoZIhvcNAQEFBQADggEBAMucN6pIExIK+t1EnE9SsPTfrgT1eXkIoyQY/Esr\n"
+       "hMAtudXH/vTBH1jLuG2cenTnmCmrEbXjcKChzUyImZOMkXDiqw8cvpOp/2PV5Adg\n"
+       "06O/nVsJ8dWO41P0jmP6P6fbtGbfYmbW0W5BjfIttep3Sp+dWOIrWcBAI+0tKIJF\n"
+       "PnlUkiaY4IBIqDfv8NZ5YBberOgOzW6sRBc4L0na4UU+Krk2U886UAb3LujEV0ls\n"
+       "YSEY1QSteDwsOoBrp+uvFRTp2InBuThs4pFsiv9kuXclVzDAGySj4dzp30d8tbQk\n"
+       "CAUw7C29C79Fv1C5qfPrmAESrciIxpg0X40KPMbp1ZWVbd4=\n"
+       "b20xIDAeBgNVBAMTF0RpZ2lDZXJ0IEdsb2JhbCBSb290IEcyMIIBIjANBgkqhkiG\n"
+       "9w0BAQEFAAOCAQ8AMIIBCgKCAQEAuzfNNNx7a8myaJCtSnX/RrohCgiN9RlUyfuI\n"
+       "2/Ou8jqJkTx65qsGGmvPrC3oXgkkRLpimn7Wo6h+4FR1IAWsULecYxpsMNzaHxmx\n"
+       "1x7e/dfgy5SDN67sH0NO3Xss0r0upS/kqbitOtSZpLYl6ZtrAGCSYP9PIUkY92eQ\n"
+       "q2EGnI/yuum06ZIya7XzV+hdG82MHauVBJVJ8zUtluNJbd134/tJS7SsVQepj5Wz\n"
+       "tCO7TG1F8PapspUwtP1MVYwnSlcUfIKdzXOS0xZKBgyMUNGPHgm+F6HmIcr9g+UQ\n"
+       "vIOlCsRnKPZzFBQ9RnbDhxSJITRNrw9FDKZJobq7nMWxM4MphQIDAQABo0IwQDAP\n"
+       "BgNVHRMBAf8EBTADAQH/MA4GA1UdDwEB/wQEAwIBhjAdBgNVHQ4EFgQUTiJUIBiV\n"
+       "5uNu5g/6+rkS7QYXjzkwDQYJKoZIhvcNAQELBQADggEBAGBnKJRvDkhj6zHd6mcY\n"
+       "1Yl9PMWLSn/pvtsrF9+wX3N3KjITOYFnQoQj8kVnNeyIv/iPsGEMNKSuIEyExtv4\n"
+       "NeF22d+mQrvHRAiGfzZ0JFrabA0UWTW98kndth/Jsw1HKj2ZL7tcu7XUIOGZX1NG\n"
+       "Fdtom/DzMNU+MeKNhJ7jitralj41E6Vf8PlwUHBHQRFXGU7Aj64GxJUTFy8bJZ91\n"
+       "8rGOmaFvE7FBcf6IKshPECBV1/MUReXgRPTqh5Uykw7+U0b6LJ3/iyK5S9kJRaTe\n"
+       "pLiaWN0bfVKfjllDiIGknibVb63dDcY3fe0Dkhvld1927jyNxF1WW6LZZm6zNTfl\n"
+       "MrY=\n"
+       "-----END CERTIFICATE-----\n";
 
-  //client.setCACert(noaa_rootCA_cert);
+   client.setCACert(noaa_rootCA_cert);
+*/
    client.setInsecure();
   delay(100);
   if (!client.connect(host, httpsPort))
@@ -109,7 +130,7 @@ void ConnectToNoaa(
   failConnect = 5;
   
   
-  const char url[] = "/api/prod/datagetter?product=predictions&application=Custom&date=recent&datum=MLLW&station=" CONFIG_NOAA_STATION "&time_zone=lst_ldt&units=english&interval=hilo&format=csv";
+  const char url[] = "/api/prod/datagetter?product=predictions&application=Custom&date=today&datum=MLLW&station=" CONFIG_NOAA_STATION "&time_zone=lst_ldt&units=english&interval=hilo&format=csv";
 
   client.print(String("GET ") + url + " HTTP/1.1\r\n" +
                "Host: " + host + "\r\n" +
@@ -157,7 +178,13 @@ void ConnectToNoaa(
       minute = atoi(pch);
     }
   }
+timeHour = hour;
+timeMinute = minute;
    client.readStringUntil('\n');
+   Serial.print("hour from header:");
+   Serial.println(hour);
+   Serial.print("minutes from header:");
+   Serial.println(minute);
 }
 
 extern const TProgmemRGBGradientPalettePtr gGradientPalettes[];
@@ -205,67 +232,95 @@ void loop()
       failConnect = 5;
     while (client.connected())
     {
+      //char c = client.read();
+      //Serial.write(c);
       
+      //client.readBytesUntil('\n', rgch, CCH);
+      //Serial.write(rgch);
+      
+     while(hourCurrent <= timeHour){
+      Serial.print("current hour:  ");
+      Serial.println(hourCurrent);
+      Serial.print("minuteCurrent:");
+      Serial.println(minuteCurrent);
+      Serial.print("hour");
+      Serial.println(timeHour);
+      Serial.print("minute");
+      Serial.println(timeMinute);
       long year = client.parseInt();
       client.read(); // '-'
       long month = client.parseInt();
       client.read(); // '-'
       long day = client.parseInt();
-      hour = client.parseInt();
-      minute = client.parseInt();
+      
+      hourCurrent = client.parseInt();
+      minuteCurrent = client.parseInt();
       long level = client.parseInt();
       client.readBytesUntil(',', rgch,CCH);
       fLow = ('L' == client.read());
+      }
       client.readBytesUntil('\n', rgch, CCH);
-      /*
-      Serial.print("year");
-      Serial.println(year);
-      Serial.print("month");
-      Serial.println(month);
+      
+      //Serial.print("year");
+      //Serial.println(year);
+      //Serial.print("month");
+      //Serial.println(month);
      
-      Serial.print("day");
-      Serial.println(day);
-      Serial.print("level");
-      Serial.println(level);
-      Serial.print("hour");
-      Serial.println(hour);
-      Serial.print("current hour:  ");
-      Serial.println(hourCurrent);
-      Serial.print("minute:");
-      Serial.println(minuteCurrent);
-      */
+      //Serial.print("day");
+      //Serial.println(day);
+      //Serial.print("level");
+      //Serial.println(level);
+     
+      
      
 
     }
     
-  client.stop();  
+  client.stop(); 
+  /* 
   Serial.print("*bool");
   Serial.println(fLow);
   //Serial.print("*tide hour");
-  Serial.print("minute");
-  Serial.println(minuteCurrent);
-  Serial.println(hour);
-  Serial.print("*currentHour");
-  Serial.print(hourCurrent);
-  Serial.print("*TideMinute");
-  Serial.println(minute); 
   
-  timerLight = hourCurrent;
-  if(hourCurrent < hour) hourCurrent = hourCurrent + 24;
-  hour = (hour * 60) + minute;
-  hourCurrent = (hourCurrent * 60) + minuteCurrent;
-  int timeToGo = hourCurrent - hour;
+  Serial.print("Hour");
+  Serial.println(hour);
+  
+  Serial.print("HourCurrent");
+  Serial.print(hourCurrent);
+  Serial.print("*MinuteCurrent");
+  Serial.println(minuteCurrent); 
+  Serial.print("rgch--dump");
+  Serial.println(rgch);
+  */
+      Serial.print("current hour:  ");
+      Serial.println(hourCurrent);
+      Serial.print("minuteCurrent:");
+      Serial.println(minuteCurrent);
+      Serial.print("hour");
+      Serial.println(timeHour);
+      Serial.print("minute");
+      Serial.println(timeMinute);
+      Serial.print("*bool");
+      Serial.println(fLow);
+  timerLight = timeHour;
+  //if(hourCurrent < hour) hourCurrent = hourCurrent + 24;
+  int hourFigure = (timeHour * 60) + timeMinute;
+  int hourCurrentFigure = (hourCurrent * 60) + minuteCurrent;
+  int timeToGo = hourCurrentFigure - hourFigure;
+  timeToGo = constrain(timeToGo, 0, 360);
+  //Serial.print("time to go!!!!!!!!");
+  //Serial.println(timeToGo);
   if(fLow) lightLevel = map(timeToGo, 0,360, 1,60);
   else lightLevel = map(timeToGo, 0,360, 60,1);
-  lightLevel = constrain(lightLevel,  1, 60);
-  Serial.print("lightLevel");
-  Serial.println(lightLevel);
+  //lightLevel = constrain(lightLevel,  1, 60);
+  //Serial.print("lightLevel");
+  //Serial.println(lightLevel);
   if((timerLight < 8) || (timerLight > 20)) timeIndex = 2;
   else if(timerLight < 11)  timeIndex = 1;
   else if(timerLight > 14) timeIndex = 4;
   else timeIndex = 3;
-  Serial.print("timeIndex");
-  Serial.println(timeIndex); 
+  //Serial.print("timeIndex");
+  //Serial.println(timeIndex); 
   tempTime(); 
   fallTemp();
   //
