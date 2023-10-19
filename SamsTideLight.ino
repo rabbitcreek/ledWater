@@ -5,7 +5,7 @@
 #include <WiFi.h>
 #include <HTTPClient.h>
 #include <Arduino_JSON.h>
-
+#include <WiFiManager.h>
 int failConnect = 1;
 #define CONFIG_NOAA_STATION "9455920"
 #define CONFIG_USER_AGENT "someone@example.com"
@@ -53,7 +53,23 @@ bool ConnectToWiFi(void)
   Serial.print("connecting to ");
   Serial.println(ssid);
   WiFi.mode(WIFI_STA);
-  WiFi.begin(ssid, password);
+  //WiFi.begin(ssid, password);
+  WiFiManager wm;
+ 
+bool res;
+ 
+res = wm.autoConnect("AutoConnectAP","password"); // password protected ap
+ 
+ 
+ 
+ 
+    if(!res) {
+ 
+        Serial.println("Failed to connect");
+ 
+        // ESP.restart();
+ 
+    }
   while (WiFi.status() != WL_CONNECTED)
   {
     delay(250);
@@ -209,7 +225,7 @@ void setup(){
 void loop()
 {
  
-   EVERY_N_MINUTES(10){
+   EVERY_N_MINUTES(5){
     fallTemp();
     sunLight();
     if (callSnow >599 && callSnow < 621) snowstorm();
