@@ -35,6 +35,7 @@ unsigned long lastTime = 0;
 unsigned long masterTimer;
 int lightLevel = 20;
 long hour = 0;
+int i = 0;
 long minute = 0;
 int hourCurrent = 0;
 int minuteCurrent = 0;
@@ -208,7 +209,7 @@ void setup(){
 void loop()
 {
  
-   EVERY_N_MINUTES(2){
+   EVERY_N_MINUTES(10){
     fallTemp();
     sunLight();
     if (callSnow >599 && callSnow < 621) snowstorm();
@@ -232,6 +233,7 @@ void loop()
       failConnect = 5;
     while (client.connected())
     {
+      i = 0;
       //char c = client.read();
       //Serial.write(c);
       
@@ -239,6 +241,10 @@ void loop()
       //Serial.write(rgch);
       
      while(hourCurrent <= timeHour){
+      //This isolates the current tide level from the others in the list for the day
+      //
+      i++;
+      if(i > 4) break;
       Serial.print("current hour:  ");
       Serial.println(hourCurrent);
       Serial.print("minuteCurrent:");
@@ -247,6 +253,8 @@ void loop()
       Serial.println(timeHour);
       Serial.print("minute");
       Serial.println(timeMinute);
+      Serial.print("this is the I:");
+      Serial.print(i);
       long year = client.parseInt();
       client.read(); // '-'
       long month = client.parseInt();
@@ -304,6 +312,7 @@ void loop()
       Serial.println(fLow);
   timerLight = timeHour;
   //if(hourCurrent < hour) hourCurrent = hourCurrent + 24;
+  if(timeHour > hourCurrent) hourCurrent = hourCurrent + 6;
   int hourFigure = (timeHour * 60) + timeMinute;
   int hourCurrentFigure = (hourCurrent * 60) + minuteCurrent;
   int timeToGo = hourCurrentFigure - hourFigure;
